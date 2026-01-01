@@ -17,12 +17,13 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
-    options.Password.RequireDigit = true;
-    options.Password.RequireLowercase = true;
-    options.Password.RequireUppercase = true;
-    options.Password.RequireNonAlphanumeric = false;
-    options.Password.RequiredLength = 6;
-    options.SignIn.RequireConfirmedAccount = false;
+    var authConfig = builder.Configuration.GetSection("Authentication:Password");
+    options.Password.RequireDigit = authConfig.GetValue<bool>("RequireDigit");
+    options.Password.RequireLowercase = authConfig.GetValue<bool>("RequireLowercase");
+    options.Password.RequireUppercase = authConfig.GetValue<bool>("RequireUppercase");
+    options.Password.RequireNonAlphanumeric = authConfig.GetValue<bool>("RequireNonAlphanumeric");
+    options.Password.RequiredLength = authConfig.GetValue<int>("RequiredLength");
+    options.SignIn.RequireConfirmedAccount = builder.Configuration.GetValue<bool>("Authentication:RequireConfirmedAccount");
 })
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
@@ -31,7 +32,9 @@ builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(60);
+    options.IdleTimeout = TimeSpan.FromMinutes(
+        builder.Configuration.GetValue<int>("Authentication:SessionTimeoutMinutes")
+    );
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 });

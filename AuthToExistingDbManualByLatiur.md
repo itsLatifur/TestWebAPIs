@@ -13,7 +13,54 @@ dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore
 
 ---
 
-## Step 2: Add ApplicationUser.cs
+## Step 2: Configure appsettings.json (BEST PRACTICE)
+
+**Location:** `appsettings.json`
+
+**IMPORTANT:** Store configuration in appsettings.json, NOT hardcoded in Program.cs. This is industry best practice.
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=YOUR_SERVER;Database=YOUR_DB;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=true"
+  },
+  "Authentication": {
+    "SessionTimeoutMinutes": 30,
+    "RequireConfirmedAccount": false,
+    "Password": {
+      "RequireDigit": true,
+      "RequireLowercase": true,
+      "RequireUppercase": true,
+      "RequireNonAlphanumeric": false,
+      "RequiredLength": 6
+    }
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+```
+
+**Why appsettings.json?**
+- ✅ Change settings without recompiling
+- ✅ Different settings per environment (Dev, Staging, Production)
+- ✅ Easier for DevOps to manage
+- ✅ Industry standard practice
+
+**Session Timeout Guidelines:**
+- **30 minutes** - Industry standard (most companies)
+- **15-20 minutes** - High security (banking, healthcare)
+- **60 minutes** - Internal tools, low security
+
+**Note:** Session uses **sliding expiration** by default - active users stay logged in, only idle users are logged out after timeout.
+
+---
+
+## Step 3: Add ApplicationUser.cs
 
 **Location:** `Auth/ApplicationUser.cs` or `Models/ApplicationUser.cs`
 
@@ -31,7 +78,7 @@ namespace YourProject.Auth
 
 ---
 
-## Step 3: Add DTOs
+## Step 4: Add DTOs
 
 ### RegisterDto.cs
 **Location:** `Auth/RegisterDto.cs` or `DTOs/RegisterDto.cs`
@@ -65,7 +112,7 @@ namespace YourProject.Auth
 
 ---
 
-## Step 4: Update DbContext
+## Step 5: Update DbContext
 
 **Location:** `Data/AppDbContext.cs`
 
@@ -92,7 +139,7 @@ namespace YourProject.Data
 
 ---
 
-## Step 5: Create SessionAuthenticationMiddleware
+## Step 6: Create SessionAuthenticationMiddleware
 
 **Location:** `Middleware/SessionAuthenticationMiddleware.cs`
 
@@ -137,7 +184,7 @@ namespace YourProject.Middleware
 
 ---
 
-## Step 6: Add AuthController
+## Step 7: Add AuthController
 
 **Location:** `Auth/AuthController.cs` or `Controllers/AuthController.cs`
 
@@ -240,7 +287,7 @@ namespace YourProject.Controllers
 
 ---
 
-## Step 7: Configure Program.cs
+## Step 8: Configure Program.cs (Read from appsettings.json)
 
 **Location:** `Program.cs`
 
@@ -256,29 +303,29 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
-// Add DbContext FIRST
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add Identity
+// Read from appsettings.json (BEST PRACTICE)
+var authConfig = builder.Configuration.GetSection("Authentication");
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
-    options.Password.RequireDigit = true;
-    options.Password.RequireLowercase = true;
-    options.Password.RequireUppercase = true;
-    options.Password.RequireNonAlphanumeric = false;
-    options.Password.RequiredLength = 6;
-    options.SignIn.RequireConfirmedAccount = false;
+    options.Password.RequireDigit = authConfig.GetValue<bool>("Password:RequireDigit");
+    options.Password.RequireLowercase = authConfig.GetValue<bool>("Password:RequireLowercase");
+    options.Password.RequireUppercase = authConfig.GetValue<bool>("Password:RequireUppercase");
+    options.Password.RequireNonAlphanumeric = authConfig.GetValue<bool>("Password:RequireNonAlphanumeric");
+    options.Password.RequiredLength = authConfig.GetValue<int>("Password:RequiredLength");
+    options.SignIn.RequireConfirmedAccount = authConfig.GetValue<bool>("RequireConfirmedAccount");
 })
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
-// Add Session
 builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(60);  // Expire time: 60 minutes
+    options.IdleTimeout = TimeSpan.FromMinutes(authConfig.GetValue<int>("SessionTimeoutMinutes"));
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 });
@@ -292,10 +339,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Session must come before Authentication
 app.UseSession();
 
-// Add custom middleware for session authentication
 app.UseMiddleware<SessionAuthenticationMiddleware>();
 
 app.UseAuthentication();
@@ -309,7 +354,7 @@ app.Run();
 
 ---
 
-## Step 8: Add [Authorize] to Controllers
+## Step 9: Add [Authorize] to Controllers
 
 **Example:** `Controllers/CoursesController.cs`
 
@@ -339,17 +384,12 @@ public async Task<ActionResult<IEnumerable<CourseDto>>> GetCourses()
 
 ---
 
-## Step 9: Create Migration and Update Database
+## Step 10: Create Migration and Update Database
 
 ```bash
-# Create migration
 dotnet ef migrations add AddIdentityTables
-
-# Update database (may lose data if schema conflicts - backup first!)
 dotnet ef database update
 ```
-
-**Warning:** If you already have user tables, this may conflict. Backup your database first!
 
 ---
 
@@ -476,8 +516,8 @@ POST http://localhost:5066/api/auth/logout
 This is the **company standard** way:
 1. Identity library generates token
 2. Token stored in session (server-side)
-3. Middleware validates token from session automatically
-4. No manual token handling needed
-5. Session expires after 60 minutes
+3. Configuration in appsettings.json (BEST PRACTICE)
+4. Session expires after idle timeout (30 min default)
+5. Sliding expiration - active users stay logged in
 
 **Use this guide every time you need to add authentication to a new project!**
