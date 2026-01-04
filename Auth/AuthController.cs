@@ -36,6 +36,8 @@ namespace TestWebAPIs.Controllers
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
+            await _userManager.AddToRoleAsync(user, dto.Role);
+
             return Ok(new { message = "Registration successful" });
         }
 
@@ -57,11 +59,13 @@ namespace TestWebAPIs.Controllers
                 return Unauthorized(new { message = "Invalid credentials" });
 
             var token = await _userManager.GenerateUserTokenAsync(user, TokenOptions.DefaultProvider, "API");
-
+            
             HttpContext.Session.SetString("AuthToken", token);
             HttpContext.Session.SetString("UserId", user.Id);
 
-            return Ok(new { message = "Login successful", token = token });
+            var roles = await _userManager.GetRolesAsync(user);
+
+            return Ok(new { message = "Login successful", token = token, roles = roles });
         }
 
         [Authorize]
@@ -81,11 +85,14 @@ namespace TestWebAPIs.Controllers
             if (user == null)
                 return Unauthorized();
 
+            var roles = await _userManager.GetRolesAsync(user);
+
             return Ok(new
             {
                 email = user.Email,
                 username = user.UserName,
-                fullName = user.FullName
+                fullName = user.FullName,
+                roles = roles
             });
         }
     }

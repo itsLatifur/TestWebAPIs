@@ -50,6 +50,7 @@ namespace TestWebAPI.Controllers
         }
 
         [HttpPost("Create")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateCourse(CourseDto courseDto)
         {
             var course = new Course
@@ -64,6 +65,7 @@ namespace TestWebAPI.Controllers
         }
 
         [HttpPut("Update/{code}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateCourse(string code, CourseDto courseDto)
         {
             var course = await _context.Courses.FindAsync(code);
@@ -79,6 +81,7 @@ namespace TestWebAPI.Controllers
         }
 
         [HttpDelete("Delete/{code}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteCourse(string code)
         {
             var course = await _context.Courses.FindAsync(code);

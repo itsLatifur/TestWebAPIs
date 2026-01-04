@@ -20,5 +20,7 @@ namespace TestWebAPIs.Auth
         [StringLength(100, MinimumLength = 6, ErrorMessage = "Password must be at least 6 characters")]
         [DataType(DataType.Password)]
         public string Password { get; set; } = string.Empty;
+
+        public string Role { get; set; } = "User";
     }
 }
